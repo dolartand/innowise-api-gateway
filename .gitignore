@@ -1,0 +1,12 @@
+target/
+
+*.log
+*.log.*
+
+.idea/
+
+*.iml
+*.ipr
+*.iws
+
+.env
