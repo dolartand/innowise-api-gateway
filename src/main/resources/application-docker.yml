@@ -1,0 +1,86 @@
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            # Auth Service Routes
+            - id: auth-service-register
+              uri: http://auth-service:8080
+              predicates:
+                - Path=/api/v1/auth/register
+                - Method=POST
+              filters:
+                - RewritePath=/api/v1/auth/(?<segment>.*), /api/v1/auth/$\{segment}
+
+            - id: auth-service-login
+              uri: http://auth-service:8080
+              predicates:
+                - Path=/api/v1/auth/login
+                - Method=POST
+              filters:
+                - RewritePath=/api/v1/auth/(?<segment>.*), /api/v1/auth/$\{segment}
+
+            - id: auth-service
+              uri: http://auth-service:8080
+              predicates:
+                - Path=/api/v1/auth/**
+              filters:
+                - RewritePath=/api/v1/auth/(?<segment>.*), /api/v1/auth/$\{segment}
+
+            # User Service Routes
+            - id: user-service
+              uri: http://user-service:8080
+              predicates:
+                - Path=/api/v1/users/**,/api/v1/cards/**
+
+            # Order Service Routes
+            - id: order-service
+              uri: http://order-service:8080
+              predicates:
+                - Path=/api/v1/orders/**,/api/v1/items/**
+
+          default-filters:
+            - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowed-origins: "*"
+                allowed-methods:
+                  - GET
+                  - POST
+                  - PUT
+                  - PATCH
+                  - DELETE
+                  - OPTIONS
+                allowed-headers: "*"
+                exposed-headers:
+                  - Authorization
+
+jwt:
+  secret: ${JWT_SECRET:your-secret-key}
+
+services:
+  auth:
+    url: http://auth-service:8080
+  user:
+    url: http://user-service:8080
+  service-key: ${SERVICE_API_KEY:service-key}
+
+server:
+  port: 8080
+
+logging:
+  level:
+    root: INFO
+    com.innowise.api-gateway: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,gateway
