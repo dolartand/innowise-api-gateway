@@ -8,7 +8,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 @Configuration
 public class WebClientConfig {
 
-    @Value("${services.auth.url")
+    @Value("${services.auth.url}")
     private String authUrl;
 
     @Value("${services.user.url}")

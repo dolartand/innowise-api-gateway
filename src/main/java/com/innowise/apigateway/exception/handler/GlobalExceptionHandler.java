@@ -1,7 +1,6 @@
 package com.innowise.apigateway.exception.handler;
 
 import com.innowise.apigateway.dto.ErrorResponse;
-import com.innowise.apigateway.exception.RegistrationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,25 +14,6 @@ import java.time.LocalDateTime;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-
-    @ExceptionHandler(RegistrationException.class)
-    public Mono<ResponseEntity<ErrorResponse>> handleRegistrationException(
-            RegistrationException ex
-    ) {
-        log.error("Registration exception: {}", ex.getMessage());
-
-        ErrorResponse error = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.BAD_REQUEST.value())
-                .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
-                .message(ex.getMessage())
-                .path("/api/v1/auth/register")
-                .build();
-
-        return Mono.just(ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(error));
-    }
 
     @ExceptionHandler(WebExchangeBindException.class)
     public Mono<ResponseEntity<ErrorResponse>> handleValidationException(

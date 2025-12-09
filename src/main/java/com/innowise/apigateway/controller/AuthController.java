@@ -3,7 +3,6 @@ package com.innowise.apigateway.controller;
 import com.innowise.apigateway.dto.AuthResponse;
 import com.innowise.apigateway.dto.LoginRequest;
 import com.innowise.apigateway.dto.RegisterRequest;
-import com.innowise.apigateway.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,8 +19,6 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class AuthController {
 
-    private final AuthService authService;
-
     @Qualifier("authServiceWebClient")
     private final WebClient authServiceWebClient;
 
@@ -34,7 +31,15 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public Mono<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
         log.info("Registration request received from email: {}", request.email());
-        return authService.register(request);
+        return authServiceWebClient
+                .post()
+                .uri("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .retrieve()
+                .bodyToMono(AuthResponse.class)
+                .doOnSuccess(response -> log.info("Successfully registered user: {}", response.email()))
+                .doOnError(error -> log.error("Registration failed: {}", error.getMessage()));
     }
 
     @PostMapping("/login")
