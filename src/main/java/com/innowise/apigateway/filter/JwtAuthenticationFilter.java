@@ -6,7 +6,7 @@ import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
-import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
+import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -19,72 +19,63 @@ import java.nio.charset.StandardCharsets;
 
 @Slf4j
 @Component
-public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAuthenticationFilter.Config> {
+public class JwtAuthenticationFilter implements GatewayFilter {
 
     @Value("${jwt.secret}")
     private String secret;
 
-    public JwtAuthenticationFilter() {
-        super(Config.class);
-    }
-
     @Override
-    public GatewayFilter apply(Config config) {
-        return (exchange, chain) -> {
-            ServerHttpRequest request = exchange.getRequest();
+    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        ServerHttpRequest request = exchange.getRequest();
+        String path = request.getURI().getPath();
 
-            // Пропускаем публичные endpoints
-            String path = request.getURI().getPath();
-            if (isPublicPath(path)) {
-                log.debug("Public path accessed: {}", path);
-                return chain.filter(exchange);
+        if (isPublicPath(path)) {
+            log.debug("Public path accessed: {}", path);
+            return chain.filter(exchange);
+        }
+
+        if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
+            log.warn("Missing Authorization header for path: {}", path);
+            return onError(exchange, "Missing authorization header", HttpStatus.UNAUTHORIZED);
+        }
+
+        String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            log.warn("Invalid Authorization header format for path: {}", path);
+            return onError(exchange, "Invalid authorization header format", HttpStatus.UNAUTHORIZED);
+        }
+
+        String token = authHeader.substring(7);
+
+        try {
+            if (!validateToken(token)) {
+                log.warn("Invalid token for path: {}", path);
+                return onError(exchange, "Invalid or expired token", HttpStatus.UNAUTHORIZED);
             }
 
-            // Проверяем наличие токена
-            if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
-                log.warn("Missing Authorization header for path: {}", path);
-                return onError(exchange, "Missing authorization header", HttpStatus.UNAUTHORIZED);
-            }
+            Claims claims = extractClaims(token);
+            ServerHttpRequest modifiedRequest = exchange.getRequest()
+                    .mutate()
+                    .header("X-User-Id", claims.get("userId").toString())
+                    .header("X-User-Email", claims.get("email").toString())
+                    .header("X-User-Role", claims.get("role").toString())
+                    .build();
 
-            String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                log.warn("Invalid Authorization header format for path: {}", path);
-                return onError(exchange, "Invalid authorization header format", HttpStatus.UNAUTHORIZED);
-            }
+            ServerWebExchange modifiedExchange = exchange.mutate()
+                    .request(modifiedRequest)
+                    .build();
 
-            String token = authHeader.substring(7);
+            log.debug("Successfully authenticated user {} for path: {}",
+                    claims.get("userId"), path);
 
-            try {
-                // Валидируем токен
-                if (!validateToken(token)) {
-                    log.warn("Invalid token for path: {}", path);
-                    return onError(exchange, "Invalid or expired token", HttpStatus.UNAUTHORIZED);
-                }
+            return chain.filter(modifiedExchange);
 
-                // Извлекаем claims и добавляем в заголовки для downstream сервисов
-                Claims claims = extractClaims(token);
-                ServerHttpRequest modifiedRequest = exchange.getRequest()
-                        .mutate()
-                        .header("X-User-Id", claims.get("userId").toString())
-                        .header("X-User-Email", claims.get("email").toString())
-                        .header("X-User-Role", claims.get("role").toString())
-                        .build();
+        } catch (Exception e) {
+            log.error("Token validation error: {}", e.getMessage());
+            return onError(exchange, "Token validation failed: " + e.getMessage(),
+                    HttpStatus.UNAUTHORIZED);
+        }
 
-                ServerWebExchange modifiedExchange = exchange.mutate()
-                        .request(modifiedRequest)
-                        .build();
-
-                log.debug("Successfully authenticated user {} for path: {}",
-                        claims.get("userId"), path);
-
-                return chain.filter(modifiedExchange);
-
-            } catch (Exception e) {
-                log.error("Token validation error: {}", e.getMessage());
-                return onError(exchange, "Token validation failed: " + e.getMessage(),
-                        HttpStatus.UNAUTHORIZED);
-            }
-        };
     }
 
     private boolean isPublicPath(String path) {
