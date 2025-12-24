@@ -8,12 +8,6 @@ import org.springframework.web.reactive.function.client.WebClient;
 @Configuration
 public class WebClientConfig {
 
-    @Value("${services.auth.url}")
-    private String authUrl;
-
-    @Value("${services.user.url}")
-    private String userUrl;
-
     @Value("${services.service-key}")
     private String serviceKey;
 
@@ -22,19 +16,5 @@ public class WebClientConfig {
         return WebClient.builder()
                 .defaultHeader("X-Service-Key", serviceKey)
                 .defaultHeader("X-Service-Name", "api-gateway");
-    }
-
-    @Bean
-    public WebClient authServiceWebClient(WebClient.Builder builder) {
-        return builder
-                .baseUrl(authUrl)
-                .build();
-    }
-
-    @Bean
-    public WebClient userServiceWebClient(WebClient.Builder builder) {
-        return builder
-                .baseUrl(userUrl)
-                .build();
     }
 }

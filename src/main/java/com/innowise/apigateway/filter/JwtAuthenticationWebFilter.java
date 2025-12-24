@@ -43,11 +43,7 @@ public class JwtAuthenticationWebFilter implements WebFilter {
 
         if (isPublicPath(path)) {
             log.debug("Public path accessed: {}", path);
-            ServerHttpRequest modifiedRequest = request
-                    .mutate()
-                    .header("X-Service-Key", serviceKey)
-                    .build();
-            return chain.filter(exchange.mutate().request(modifiedRequest).build());
+            return chain.filter(exchange);
         }
 
         if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
@@ -80,7 +76,6 @@ public class JwtAuthenticationWebFilter implements WebFilter {
                     .header("X-User-Id", claims.get("userId").toString())
                     .header("X-User-Email", claims.get("email").toString())
                     .header("X-User-Role", claims.get("role").toString())
-                    .header("X-Service-Key", serviceKey)
                     .build();
 
             ServerWebExchange modifiedExchange = exchange.mutate()
