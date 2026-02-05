@@ -55,7 +55,9 @@ spring:
           globalcors:
             cors-configurations:
               '[/**]':
-                allowed-origins: "*"
+                allowed-origins:
+                  - "http://localhost:5173"
+                  - "http://innowise.local"
                 allowed-methods:
                   - GET
                   - POST
@@ -64,6 +66,7 @@ spring:
                   - DELETE
                   - OPTIONS
                 allowed-headers: "*"
+                allow-credentials: true
                 exposed-headers:
                   - Authorization
 
